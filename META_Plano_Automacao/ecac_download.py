@@ -177,9 +177,20 @@ REQUIRED_PACKAGES = {
 }
 
 
-def ensure_dependencies() -> None:
+# Quando este arquivo é executado diretamente, nada muda: o modo estrito
+# continua exigindo Windows e todas as bibliotecas.
+# Quando ele é apenas IMPORTADO por outra automação (por exemplo a da
+# PGFN/Regularize, que reaproveita a planilha, o CNPJ e o Chrome daqui),
+# a checagem vira um aviso, para não exigir pynput em um fluxo que não usa
+# mouse nem teclado físicos.
+EXECUTANDO_DIRETAMENTE = __name__ == "__main__"
+
+
+def ensure_dependencies(strict: bool = True) -> None:
     if os.name != "nt":
-        raise RuntimeError("Esta automação foi criada para Windows 11.")
+        if strict:
+            raise RuntimeError("Esta automação foi criada para Windows 11.")
+        return
 
     missing = [
         requirement
@@ -191,21 +202,46 @@ def ensure_dependencies() -> None:
         return
 
     if not AUTO_INSTALL_DEPENDENCIES:
-        raise RuntimeError(
-            "Bibliotecas ausentes: " + ", ".join(missing)
-        )
+        if strict:
+            raise RuntimeError(
+                "Bibliotecas ausentes: " + ", ".join(missing)
+            )
+        return
 
     print("Instalando bibliotecas necessárias: " + ", ".join(missing))
-    subprocess.check_call(
-        [sys.executable, "-m", "pip", "install", "--upgrade", *missing]
-    )
+
+    try:
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", "--upgrade", *missing]
+        )
+    except Exception:
+        if strict:
+            raise
 
 
-ensure_dependencies()
+ensure_dependencies(strict=EXECUTANDO_DIRETAMENTE)
 
-from openpyxl import load_workbook  # noqa: E402
-from pypdf import PdfReader  # noqa: E402
-from pynput import keyboard, mouse  # noqa: E402
+try:
+    from openpyxl import load_workbook  # noqa: E402
+except Exception:
+    if EXECUTANDO_DIRETAMENTE:
+        raise
+    load_workbook = None  # type: ignore[assignment]
+
+try:
+    from pypdf import PdfReader  # noqa: E402
+except Exception:
+    if EXECUTANDO_DIRETAMENTE:
+        raise
+    PdfReader = None  # type: ignore[assignment]
+
+try:
+    from pynput import keyboard, mouse  # noqa: E402
+except Exception:
+    if EXECUTANDO_DIRETAMENTE:
+        raise
+    keyboard = None  # type: ignore[assignment]
+    mouse = None  # type: ignore[assignment]
 
 
 # =============================================================================
