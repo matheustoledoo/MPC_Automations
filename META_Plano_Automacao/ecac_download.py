@@ -251,6 +251,11 @@ ACTION_LABELS = {
     "close_representation_panel": "X para fechar o menu lateral",
 }
 
+# Somente estas ações fazem parte do fluxo de representação.
+# Outras automações da Central podem acrescentar rótulos em ACTION_LABELS
+# para reaproveitar o mesmo aprendizado sem alterar o que é exigido aqui.
+REQUIRED_ACTION_KEYS = frozenset(ACTION_LABELS)
+
 # Ritmo registrado na digitação manual do primeiro CNPJ.
 TYPING_PATTERN: list[dict[str, float]] = []
 
@@ -1847,15 +1852,19 @@ def move_and_rename_report(
 # PROCESSAMENTO DO LOOP
 # =============================================================================
 
-def process_client(
+def represent_client(
     client: Client,
     learning_mode: bool,
-) -> tuple[Path, str, bool]:
-    if TEMP_DOWNLOAD_DIR is None:
-        raise RuntimeError(
-            "Diretório temporário não configurado."
-        )
+) -> None:
+    """
+    Executa as etapas 1 a 8 do fluxo: abrir o painel, informar o CNPJ,
+    selecionar Procurador, esperar 30 segundos, clicar em Representar e
+    fechar o menu lateral.
 
+    O bloco foi extraído de process_client sem qualquer alteração de
+    comportamento para que outras automações da Central possam reaproveitar
+    exatamente a mesma representação.
+    """
     # Sempre começa no topo para deixar o fluxo previsível.
     keyboard_ctrl_home()
 
@@ -1938,6 +1947,21 @@ def process_client(
 
     # O fechamento do menu pode alterar a altura/layout. Força novamente o topo.
     keyboard_ctrl_home()
+
+
+def process_client(
+    client: Client,
+    learning_mode: bool,
+) -> tuple[Path, str, bool]:
+    if TEMP_DOWNLOAD_DIR is None:
+        raise RuntimeError(
+            "Diretório temporário não configurado."
+        )
+
+    represent_client(
+        client,
+        learning_mode=learning_mode,
+    )
 
     # 9. Baixar o relatório.
     # Na segunda empresa, marca dez posições usando F8.
@@ -2078,7 +2102,7 @@ def process_first_client_fully_manual(
 
 
 def learning_is_complete() -> bool:
-    required_actions = set(ACTION_LABELS)
+    required_actions = set(REQUIRED_ACTION_KEYS)
 
     return (
         required_actions.issubset(MOUSE_ACTIONS)
