@@ -18,6 +18,7 @@ from tkinter import filedialog, messagebox, ttk
 APP_DIR = Path(__file__).resolve().parent
 DOWNLOAD_SCRIPT = APP_DIR / "ecac_download.py"
 ANALYZER_SCRIPT = APP_DIR / "pdf_inaptos.py"
+PGFN_SCRIPT = APP_DIR / "pgfn_regularize.py"
 LOGO_PATH = APP_DIR / "assets" / "logo.png"
 
 LOCAL_APP_DATA = Path(os.environ.get("LOCALAPPDATA", str(Path.home())))
@@ -27,6 +28,7 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 DEFAULT_EXCEL = r"C:\Users\z0057vzy\OneDrive - Siemens Healthineers\Desktop\Teste\Planilha_Clientes-1784744405619.xlsx"
 DEFAULT_PDF_DIR = r"C:\Users\z0057vzy\OneDrive - Siemens Healthineers\Desktop\Saidas"
 DEFAULT_REPORT = r"C:\Users\z0057vzy\OneDrive - Siemens Healthineers\Desktop\Relatorio_Empresas_Inaptas.xlsx"
+DEFAULT_PGFN_DIR = r"C:\Users\z0057vzy\OneDrive - Siemens Healthineers\Desktop\Saidas PGFN"
 
 BG = "#F5F5F4"
 CARD = "#FFFFFF"
@@ -98,8 +100,8 @@ class MetaPlanoApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("META PLANO | Automação Receita Federal")
-        self.geometry("1220x800")
-        self.minsize(1080, 700)
+        self.geometry("1220x860")
+        self.minsize(1080, 740)
         self.configure(bg=BG)
 
         self.process: subprocess.Popen | None = None
@@ -112,8 +114,10 @@ class MetaPlanoApp(tk.Tk):
         self.excel_var = tk.StringVar(value=self.config_data.get("excel", DEFAULT_EXCEL))
         self.pdf_dir_var = tk.StringVar(value=self.config_data.get("pdf_dir", DEFAULT_PDF_DIR))
         self.report_var = tk.StringVar(value=self.config_data.get("report", DEFAULT_REPORT))
+        self.pgfn_dir_var = tk.StringVar(value=self.config_data.get("pgfn_dir", DEFAULT_PGFN_DIR))
         self.run_download_var = tk.BooleanVar(value=self.config_data.get("run_download", True))
         self.run_analysis_var = tk.BooleanVar(value=self.config_data.get("run_analysis", True))
+        self.run_pgfn_var = tk.BooleanVar(value=self.config_data.get("run_pgfn", False))
         self.status_var = tk.StringVar(value="Pronto para iniciar")
         self.progress_var = tk.DoubleVar(value=0)
 
@@ -184,7 +188,7 @@ class MetaPlanoApp(tk.Tk):
         ).pack(anchor="w", padx=24, pady=(26, 4))
         tk.Label(
             parent,
-            text="Receita Federal + análise\nde empresas inaptas",
+            text="Receita Federal, análise de empresas\ninaptas e PGFN / Regularize",
             justify="left",
             bg=MAROON_DARK,
             fg="#EADDDD",
@@ -206,10 +210,17 @@ class MetaPlanoApp(tk.Tk):
         ToggleSwitch(toggle_box, "1. Baixar relatórios", self.run_download_var, self.save_config).pack(padx=6)
         tk.Frame(toggle_box, height=1, bg=BORDER).pack(fill="x", padx=10)
         ToggleSwitch(toggle_box, "2. Analisar INAPTOS", self.run_analysis_var, self.save_config).pack(padx=6)
+        tk.Frame(toggle_box, height=1, bg=BORDER).pack(fill="x", padx=10)
+        ToggleSwitch(
+            toggle_box,
+            "3. Relatórios PGFN / Regularize",
+            self.run_pgfn_var,
+            self.save_config,
+        ).pack(padx=6)
 
         tk.Label(
             parent,
-            text="Com os dois ligados, a análise começa\nautomaticamente após os downloads.",
+            text="As etapas ligadas são executadas na ordem\n1, 2 e 3, uma depois da outra.",
             justify="left",
             bg=MAROON_DARK,
             fg="#EADDDD",
@@ -225,7 +236,8 @@ class MetaPlanoApp(tk.Tk):
         ).pack(anchor="w", padx=24, pady=(26, 2))
         tk.Label(
             parent,
-            text="Somente PDFs finais renomeados.",
+            text="Somente PDFs finais renomeados.\nO PGFN usa uma pasta separada.",
+            justify="left",
             bg=MAROON_DARK,
             fg="#EADDDD",
             font=("Segoe UI", 9),
@@ -271,6 +283,7 @@ class MetaPlanoApp(tk.Tk):
         self._path_row(settings, 1, "Planilha de clientes", self.excel_var, self.choose_excel, "Arquivo usado para os CNPJs ativos")
         self._path_row(settings, 2, "Pasta dos PDFs", self.pdf_dir_var, self.choose_pdf_dir, "Destino da automação 1 e fonte da automação 2")
         self._path_row(settings, 3, "Excel de empresas inaptas", self.report_var, self.choose_report, "Salvo fora da pasta de PDFs")
+        self._path_row(settings, 4, "Pasta dos relatórios PGFN", self.pgfn_dir_var, self.choose_pgfn_dir, "Destino da automação 3 (Regularize)")
 
         settings.grid_columnconfigure(1, weight=1)
 
@@ -395,6 +408,9 @@ class MetaPlanoApp(tk.Tk):
 
         self.log("META PLANO Automation Center iniciado.\n", "stage")
         self.log("A pasta de PDFs deve permanecer contendo somente relatórios PDF finais.\n")
+        self.log(
+            "Os relatórios do PGFN / Regularize são salvos na pasta própria da automação 3.\n"
+        )
 
     def _path_row(self, parent, row, title, var, command, subtitle):
         label_box = tk.Frame(parent, bg=CARD)
@@ -446,6 +462,12 @@ class MetaPlanoApp(tk.Tk):
                 self.report_var.set(str(Path(path).parent / "Relatorio_Empresas_Inaptas.xlsx"))
             self.save_config()
 
+    def choose_pgfn_dir(self):
+        path = filedialog.askdirectory(title="Selecione a pasta dos relatórios PGFN / Regularize")
+        if path:
+            self.pgfn_dir_var.set(path)
+            self.save_config()
+
     def choose_report(self):
         path = filedialog.asksaveasfilename(
             title="Salvar relatório de empresas inaptas",
@@ -458,14 +480,19 @@ class MetaPlanoApp(tk.Tk):
             self.save_config()
 
     def validate(self) -> bool:
-        if not self.run_download_var.get() and not self.run_analysis_var.get():
-            messagebox.showwarning("Selecione uma etapa", "Ative pelo menos uma das duas automações.")
+        if (
+            not self.run_download_var.get()
+            and not self.run_analysis_var.get()
+            and not self.run_pgfn_var.get()
+        ):
+            messagebox.showwarning("Selecione uma etapa", "Ative pelo menos uma das automações.")
             return False
 
         pdf_dir = Path(self.pdf_dir_var.get().strip())
         if not self.pdf_dir_var.get().strip():
-            messagebox.showerror("Pasta de PDFs", "Selecione a pasta onde os PDFs serão salvos/analisados.")
-            return False
+            if self.run_download_var.get() or self.run_analysis_var.get():
+                messagebox.showerror("Pasta de PDFs", "Selecione a pasta onde os PDFs serão salvos/analisados.")
+                return False
 
         if self.run_download_var.get():
             excel = Path(self.excel_var.get().strip())
@@ -490,6 +517,32 @@ class MetaPlanoApp(tk.Tk):
                 )
                 return False
 
+        if self.run_pgfn_var.get():
+            excel = Path(self.excel_var.get().strip())
+            if not excel.exists():
+                messagebox.showerror("Planilha", "A planilha de clientes selecionada não existe.")
+                return False
+
+            pgfn_dir_text = self.pgfn_dir_var.get().strip()
+            if not pgfn_dir_text:
+                messagebox.showerror(
+                    "Pasta dos relatórios PGFN",
+                    "Selecione a pasta onde os relatórios do Regularize serão salvos.",
+                )
+                return False
+
+            pgfn_dir = Path(pgfn_dir_text)
+            if self.pdf_dir_var.get().strip() and pgfn_dir.resolve() == pdf_dir.resolve():
+                messagebox.showerror(
+                    "Pastas separadas",
+                    "Os relatórios do PGFN / Regularize precisam de uma pasta própria.\n\n"
+                    "A pasta dos PDFs do eCAC é usada pela análise de INAPTOS e deve conter "
+                    "somente os relatórios da Receita Federal.",
+                )
+                return False
+
+            pgfn_dir.mkdir(parents=True, exist_ok=True)
+
         return True
 
     def start(self):
@@ -512,11 +565,32 @@ class MetaPlanoApp(tk.Tk):
         self.worker_thread = threading.Thread(target=self.run_pipeline, daemon=True)
         self.worker_thread.start()
 
+    def enabled_stages(self) -> list[str]:
+        stages = []
+        if self.run_download_var.get():
+            stages.append("download")
+        if self.run_analysis_var.get():
+            stages.append("analysis")
+        if self.run_pgfn_var.get():
+            stages.append("pgfn")
+        return stages
+
+    def stage_label(self, stage: str, stages: list[str]) -> str:
+        titles = {
+            "download": "Baixando relatórios da Receita Federal",
+            "analysis": "Analisando situação cadastral dos PDFs",
+            "pgfn": "Gerando relatórios PGFN / Regularize",
+        }
+        return (
+            f"Automação {stages.index(stage) + 1}/{len(stages)} - {titles[stage]}"
+        )
+
     def run_pipeline(self):
+        stages = self.enabled_stages()
         try:
-            if self.run_download_var.get() and not self.stop_requested:
+            if "download" in stages and not self.stop_requested:
                 self.pipeline_stage = "download"
-                self.events.put(("status", "Automação 1/2 - Baixando relatórios da Receita Federal"))
+                self.events.put(("status", self.stage_label("download", stages)))
                 self.events.put(("continue_enabled", True))
                 code = self.run_download_process()
                 self.events.put(("continue_enabled", False))
@@ -529,14 +603,34 @@ class MetaPlanoApp(tk.Tk):
                 if code == 2:
                     self.events.put(("warning", "A automação 1 terminou com algumas empresas em erro. A análise seguirá com os PDFs disponíveis."))
 
-            if self.run_analysis_var.get() and not self.stop_requested:
+            if "analysis" in stages and not self.stop_requested:
                 self.pipeline_stage = "analysis"
                 self.events.put(("progress", 0))
-                self.events.put(("status", "Automação 2/2 - Analisando situação cadastral dos PDFs"))
+                self.events.put(("status", self.stage_label("analysis", stages)))
                 code = self.run_analysis_process()
                 if code != 0:
                     self.events.put(("error", f"A análise de PDFs terminou com código {code}."))
                     return
+
+            if "pgfn" in stages and not self.stop_requested:
+                self.pipeline_stage = "pgfn"
+                self.events.put(("progress", 0))
+                self.events.put(("status", self.stage_label("pgfn", stages)))
+                self.events.put(("continue_enabled", True))
+                code = self.run_pgfn_process()
+                self.events.put(("continue_enabled", False))
+
+                if self.stop_requested:
+                    return
+                if code not in (0, 2):
+                    self.events.put(("error", f"A automação PGFN / Regularize terminou com código {code}."))
+                    return
+                if code == 2:
+                    self.events.put((
+                        "warning",
+                        "A automação PGFN terminou com empresas em erro ou sem cadastro no Regularize. "
+                        "Confira o PDF gerado com a lista dessas empresas.",
+                    ))
 
             if not self.stop_requested:
                 self.events.put(("progress", 100))
@@ -555,6 +649,15 @@ class MetaPlanoApp(tk.Tk):
         env["ECAC_OUTPUT_DIR"] = self.pdf_dir_var.get().strip()
 
         cmd = [sys.executable, "-u", str(DOWNLOAD_SCRIPT)]
+        return self.run_subprocess(cmd, env)
+
+    def run_pgfn_process(self) -> int:
+        env = os.environ.copy()
+        env["PYTHONUNBUFFERED"] = "1"
+        env["PGFN_EXCEL_PATH"] = self.excel_var.get().strip()
+        env["PGFN_OUTPUT_DIR"] = self.pgfn_dir_var.get().strip()
+
+        cmd = [sys.executable, "-u", str(PGFN_SCRIPT)]
         return self.run_subprocess(cmd, env)
 
     def run_analysis_process(self) -> int:
@@ -703,8 +806,10 @@ class MetaPlanoApp(tk.Tk):
                 "excel": self.excel_var.get(),
                 "pdf_dir": self.pdf_dir_var.get(),
                 "report": self.report_var.get(),
+                "pgfn_dir": self.pgfn_dir_var.get(),
                 "run_download": self.run_download_var.get(),
                 "run_analysis": self.run_analysis_var.get(),
+                "run_pgfn": self.run_pgfn_var.get(),
             }
             CONFIG_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         except Exception:
