@@ -23,7 +23,9 @@ O projeto possui tres automacoes integradas em uma unica tela:
    - Usa a MESMA planilha de clientes da automacao 1.
    - Reaproveita integralmente a representacao do eCAC (CNPJ, Procurador,
      espera de 30 s, Representar, espera de 45 s, fechar menu lateral).
-   - Depois de representar, segue o fluxo:
+   - Depois de representar, segue o fluxo (o eCAC e aberto sempre em
+     https://cav.receita.fazenda.gov.br/ecac/Default.aspx e recebe ESC na
+     entrada para fechar os pop-ups):
      eCAC -> Divida Ativa da Uniao -> PGFN Todos os servicos do Regularize ->
      Ciente -> (Fechar aviso, quando aparece) -> Consultar Divida Ativa ->
      espera de 25 s -> Relatorio consolidado -> Natureza "Todos" ->

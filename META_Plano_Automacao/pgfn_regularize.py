@@ -93,8 +93,13 @@ PGFN_OUTPUT_DIR = Path(
 # Página do eCAC aberta depois que a empresa já está representada.
 ECAC_URL = os.environ.get(
     "PGFN_ECAC_URL",
-    "https://cav.receita.fazenda.gov.br/ecac/",
+    "https://cav.receita.fazenda.gov.br/ecac/Default.aspx",
 )
+
+# Ao entrar no eCAC costumam aparecer avisos/pop-ups. O ESC é enviado logo
+# na abertura da página, sempre, antes de qualquer clique aprendido.
+ESC_PRESSES_ON_ECAC_OPEN = 2
+WAIT_AFTER_ECAC_ESC_SECONDS = (1.5, 2.5)
 
 PORTAL_HOST_MARKERS = ("servicos.receitafederal.gov.br",)
 ECAC_HOST_MARKERS = ("cav.receita.fazenda.gov.br",)
@@ -1071,6 +1076,12 @@ def process_pgfn_client(
     LOGGER.info("Acessando o eCAC da empresa representada...")
     open_url_in_new_tab(ECAC_URL)
     random_sleep(WAIT_AFTER_ECAC_OPEN_SECONDS)
+
+    # Fecha os pop-ups que o eCAC exibe na entrada.
+    LOGGER.info("Fechando pop-ups do eCAC com ESC...")
+    press_escape(ESC_PRESSES_ON_ECAC_OPEN)
+    random_sleep(WAIT_AFTER_ECAC_ESC_SECONDS)
+
     ecac.keyboard_ctrl_home()
 
     LOGGER.info("Acessando Dívida Ativa da União...")
